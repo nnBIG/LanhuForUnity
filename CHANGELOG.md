@@ -2,6 +2,14 @@
 
 All notable changes to Lanhu Runtime Sync are documented here.
 
+## 1.0.5 - 2026-07-21
+
+- Preserved Photoshop outside and inside stroke alignment with TMP Face Dilate instead of allowing centered SDF outlines to cover the glyph face.
+- Added reusable high-padding dynamic TMP font assets for outlined and shadowed text, preventing Underlay sampling artifacts from tightly packed source atlases.
+- Corrected Photoshop shadow angle direction and kept Distance, Spread, Size, and color-space conversion in source pixel units.
+- Applied Photoshop percentage-based horizontal glyph scaling through TMP rich text while keeping Character Spacing at zero.
+- Forced imported Canvas roots back to unit scale when creating or updating a page.
+
 ## 1.0.4 - 2026-07-21
 
 - Moved imported pages under a dedicated Canvas parent and fixed CanvasScaler reference resolution to use the Lanhu artboard size.

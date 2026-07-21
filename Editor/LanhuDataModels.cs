@@ -461,6 +461,7 @@ namespace LanhuRuntimeSync.EditorTools
         public float Size;
         public float LineHeight;
         public float LetterSpacing;
+        public float HorizontalScale = 1f;
         public int Weight;
         public bool Bold;
         public bool Italic;
@@ -486,6 +487,14 @@ namespace LanhuRuntimeSync.EditorTools
             weight = weight > 0 ? NormalizeWeight(weight) : InferWeight(descriptor, 400);
             var decoration = FirstString(json["textDecoration"], json["decoration"]);
 
+            var letterSpacing = json["letterSpacing"];
+            var letterSpacingUnit = LanhuDesignInfo.ReadString((letterSpacing as JObject)?["unit"]);
+            var letterSpacingValue = ReadMetric(letterSpacing);
+            var horizontalScale = (letterSpacingUnit.IndexOf("percent", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                                   letterSpacingUnit.Contains("%")) && letterSpacingValue >= 50f
+                ? Mathf.Clamp(letterSpacingValue / 100f, 0.25f, 4f)
+                : 1f;
+
             return new LanhuFontData
             {
                 FamilyName = familyName,
@@ -495,7 +504,8 @@ namespace LanhuRuntimeSync.EditorTools
                 VerticalAlignment = LanhuDesignInfo.ReadString(json["verticalAlignment"]),
                 Size = size,
                 LineHeight = ReadLineHeight(json["lineHeight"], size),
-                LetterSpacing = ReadMetric(json["letterSpacing"]),
+                LetterSpacing = letterSpacingValue,
+                HorizontalScale = horizontalScale,
                 Weight = weight,
                 Bold = ReadFlag(json["bold"]),
                 Italic = ReadFlag(json["italic"]) || ContainsAny(descriptor, "italic", "oblique"),
@@ -590,6 +600,7 @@ namespace LanhuRuntimeSync.EditorTools
         public LanhuColor? FillColor;
         public LanhuColor? OutlineColor;
         public float OutlineWidth;
+        public string OutlineAlignment;
         public LanhuColor? ShadowColor;
         public Vector2 ShadowOffset;
         public float ShadowBlur;
@@ -616,6 +627,7 @@ namespace LanhuRuntimeSync.EditorTools
             {
                 result.OutlineColor = LanhuColor.ParseNullable(border["color"] as JObject, ReadOpacity(border["opacity"], 1f));
                 result.OutlineWidth = Mathf.Max(0f, LanhuDesignInfo.ReadFloat(border["width"]));
+                result.OutlineAlignment = LanhuDesignInfo.ReadString(border["lineAlignment"]);
             }
 
             var shadow = (json["shadows"] as JArray)?.OfType<JObject>()
@@ -633,7 +645,7 @@ namespace LanhuRuntimeSync.EditorTools
                     var spreadRatio = Mathf.Clamp01(rawSpread / 100f);
                     var angleRadians = rawY * Mathf.Deg2Rad;
                     result.ShadowOffset = new Vector2(
-                        -Mathf.Cos(angleRadians) * rawX,
+                        Mathf.Cos(angleRadians) * rawX,
                         -Mathf.Sin(angleRadians) * rawX);
                     result.ShadowSpread = rawBlur * spreadRatio;
                     result.ShadowBlur = rawBlur * (1f - spreadRatio);

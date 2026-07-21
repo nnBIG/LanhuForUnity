@@ -6,6 +6,7 @@ using System.Text;
 using TMPro;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.TextCore.LowLevel;
 using UnityEngine.UI;
 
 namespace LanhuRuntimeSync.EditorTools
@@ -13,9 +14,12 @@ namespace LanhuRuntimeSync.EditorTools
     internal static class LanhuTextMaterialUtility
     {
         private const string MaterialFolder = "Assets/LanhuRuntimeSync/Generated/TMP Materials";
+        private const string EffectFontFolder = "Assets/LanhuRuntimeSync/Generated/TMP Fonts";
         private const string UnderlayInnerKeyword = "UNDERLAY_INNER";
         private const string MobileDistanceFieldShader = "TextMeshPro/Mobile/Distance Field";
         private const string DistanceFieldShader = "TextMeshPro/Distance Field";
+        private const int EffectFontAtlasPadding = 32;
+        private const int EffectFontAtlasSize = 2048;
 
         public static void Apply(TextMeshProUGUI text, LanhuVisualStyle style)
         {
@@ -26,16 +30,22 @@ namespace LanhuRuntimeSync.EditorTools
 
             RemoveLegacyUiEffects(text.gameObject);
 
+            var outlineColor = ToTextEffectColorSpace(style?.OutlineColor?.ToUnityColor() ?? Color.clear);
+            var shadowColor = ToTextEffectColorSpace(style?.ShadowColor?.ToUnityColor() ?? Color.clear);
+            var hasOutline = style != null && style.OutlineWidth > 0f && outlineColor.a > 0f;
+            var hasShadow = style != null && shadowColor.a > 0f;
+
+            if (hasOutline || hasShadow)
+            {
+                AssignEffectFont(text);
+            }
+
             var baseMaterial = text.font ? text.font.material : text.fontSharedMaterial;
             if (!baseMaterial)
             {
                 return;
             }
 
-            var outlineColor = ToTextEffectColorSpace(style?.OutlineColor?.ToUnityColor() ?? Color.clear);
-            var shadowColor = ToTextEffectColorSpace(style?.ShadowColor?.ToUnityColor() ?? Color.clear);
-            var hasOutline = style != null && style.OutlineWidth > 0f && outlineColor.a > 0f;
-            var hasShadow = style != null && shadowColor.a > 0f;
             if (!hasOutline && !hasShadow)
             {
                 AssignMaterial(text, baseMaterial);
@@ -45,6 +55,9 @@ namespace LanhuRuntimeSync.EditorTools
             var pixelsPerEffectUnit = GetPixelsPerEffectUnit(text, baseMaterial);
             var outlineWidth = hasOutline
                 ? Mathf.Clamp01(style.OutlineWidth / pixelsPerEffectUnit)
+                : 0f;
+            var faceDilate = hasOutline
+                ? ResolveFaceDilate(style.OutlineAlignment, outlineWidth)
                 : 0f;
             var shadowOffset = hasShadow
                 ? new Vector2(
@@ -64,6 +77,7 @@ namespace LanhuRuntimeSync.EditorTools
                 hasOutline,
                 outlineColor,
                 outlineWidth,
+                faceDilate,
                 hasShadow,
                 shadowColor,
                 shadowOffset,
@@ -81,6 +95,7 @@ namespace LanhuRuntimeSync.EditorTools
                 hasOutline,
                 outlineColor,
                 outlineWidth,
+                faceDilate,
                 hasShadow,
                 shadowColor,
                 shadowOffset,
@@ -96,6 +111,7 @@ namespace LanhuRuntimeSync.EditorTools
             bool hasOutline,
             Color outlineColor,
             float outlineWidth,
+            float faceDilate,
             bool hasShadow,
             Color shadowColor,
             Vector2 shadowOffset,
@@ -108,6 +124,7 @@ namespace LanhuRuntimeSync.EditorTools
                 hasOutline,
                 outlineColor,
                 outlineWidth,
+                faceDilate,
                 hasShadow,
                 shadowColor,
                 shadowOffset,
@@ -136,6 +153,7 @@ namespace LanhuRuntimeSync.EditorTools
             bool hasOutline,
             Color outlineColor,
             float outlineWidth,
+            float faceDilate,
             bool hasShadow,
             Color shadowColor,
             Vector2 shadowOffset,
@@ -150,6 +168,8 @@ namespace LanhuRuntimeSync.EditorTools
             SetKeyword(material, ShaderUtilities.Keyword_Outline, hasOutline);
             SetColor(material, ShaderUtilities.ID_OutlineColor, hasOutline ? outlineColor : Color.clear);
             SetFloat(material, ShaderUtilities.ID_OutlineWidth, hasOutline ? outlineWidth : 0f);
+            SetFloat(material, ShaderUtilities.ID_OutlineSoftness, 0f);
+            SetFloat(material, ShaderUtilities.ID_FaceDilate, hasOutline ? faceDilate : 0f);
 
             SetKeyword(material, ShaderUtilities.Keyword_Underlay, hasShadow);
             material.DisableKeyword(UnderlayInnerKeyword);
@@ -170,6 +190,7 @@ namespace LanhuRuntimeSync.EditorTools
             bool hasOutline,
             Color outlineColor,
             float outlineWidth,
+            float faceDilate,
             bool hasShadow,
             Color shadowColor,
             Vector2 shadowOffset,
@@ -186,6 +207,7 @@ namespace LanhuRuntimeSync.EditorTools
             {
                 builder.Append(ColorUtility.ToHtmlStringRGBA(outlineColor));
                 builder.Append('|').Append(Number(outlineWidth));
+                builder.Append('|').Append(Number(faceDilate));
             }
 
             builder.Append(hasShadow ? "|UL|" : "|NoUL|");
@@ -211,6 +233,120 @@ namespace LanhuRuntimeSync.EditorTools
                     ? text.font.atlasPadding + 1f
                     : 5f;
             return Mathf.Max(0.001f, gradientScale * fontSize / pointSize);
+        }
+
+        private static float ResolveFaceDilate(string alignment, float outlineWidth)
+        {
+            if (string.Equals(alignment, "outside", StringComparison.OrdinalIgnoreCase))
+            {
+                return outlineWidth;
+            }
+
+            if (string.Equals(alignment, "inside", StringComparison.OrdinalIgnoreCase))
+            {
+                return -outlineWidth;
+            }
+
+            return 0f;
+        }
+
+        private static void AssignEffectFont(TextMeshProUGUI text)
+        {
+            var sourceAsset = text.font;
+            if (!sourceAsset || sourceAsset.atlasPadding >= EffectFontAtlasPadding || !sourceAsset.sourceFontFile)
+            {
+                return;
+            }
+
+            var sourceFontPath = AssetDatabase.GetAssetPath(sourceAsset.sourceFontFile);
+            var sourceFontGuid = AssetDatabase.AssetPathToGUID(sourceFontPath);
+            if (string.IsNullOrWhiteSpace(sourceFontGuid))
+            {
+                return;
+            }
+
+            EnsureAssetFolder(EffectFontFolder);
+            var fontName = $"{SafeName(sourceAsset.name)}_LanhuEffectP{EffectFontAtlasPadding}_{StableHash(sourceFontGuid).Substring(0, 8)}";
+            var assetPath = $"{EffectFontFolder}/{fontName}.asset";
+            var effectAsset = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(assetPath);
+            if (!effectAsset)
+            {
+                var pointSize = Mathf.Max(16, Mathf.RoundToInt(sourceAsset.faceInfo.pointSize));
+                effectAsset = TMP_FontAsset.CreateFontAsset(
+                    sourceAsset.sourceFontFile,
+                    pointSize,
+                    EffectFontAtlasPadding,
+                    GlyphRenderMode.SDFAA,
+                    EffectFontAtlasSize,
+                    EffectFontAtlasSize,
+                    AtlasPopulationMode.Dynamic,
+                    true);
+                if (!effectAsset)
+                {
+                    return;
+                }
+
+                effectAsset.name = fontName;
+                effectAsset.normalStyle = sourceAsset.normalStyle;
+                effectAsset.normalSpacingOffset = sourceAsset.normalSpacingOffset;
+                effectAsset.boldStyle = sourceAsset.boldStyle;
+                effectAsset.boldSpacing = sourceAsset.boldSpacing;
+                effectAsset.fallbackFontAssetTable = sourceAsset.fallbackFontAssetTable;
+                effectAsset.atlasTextures[0].name = fontName + " Atlas";
+                effectAsset.material.name = fontName + " Material";
+                effectAsset.material.SetFloat(ShaderUtilities.ID_WeightNormal, effectAsset.normalStyle);
+                effectAsset.material.SetFloat(ShaderUtilities.ID_WeightBold, effectAsset.boldStyle);
+
+                AssetDatabase.CreateAsset(effectAsset, assetPath);
+                PersistFontSubAssets(effectAsset);
+            }
+
+            string parsedText;
+            try
+            {
+                text.ForceMeshUpdate(true, true);
+                parsedText = text.GetParsedText();
+            }
+            catch
+            {
+                parsedText = string.Empty;
+            }
+
+            if (!string.IsNullOrEmpty(parsedText))
+            {
+                effectAsset.TryAddCharacters(parsedText, out _);
+                PersistFontSubAssets(effectAsset);
+            }
+
+            if (text.font != effectAsset)
+            {
+                text.font = effectAsset;
+            }
+
+            EditorUtility.SetDirty(effectAsset);
+        }
+
+        private static void PersistFontSubAssets(TMP_FontAsset fontAsset)
+        {
+            foreach (var texture in fontAsset.atlasTextures ?? Array.Empty<Texture2D>())
+            {
+                if (!texture || AssetDatabase.Contains(texture))
+                {
+                    continue;
+                }
+
+                texture.name = string.IsNullOrWhiteSpace(texture.name)
+                    ? fontAsset.name + " Atlas"
+                    : texture.name;
+                AssetDatabase.AddObjectToAsset(texture, fontAsset);
+                EditorUtility.SetDirty(texture);
+            }
+
+            if (fontAsset.material && !AssetDatabase.Contains(fontAsset.material))
+            {
+                AssetDatabase.AddObjectToAsset(fontAsset.material, fontAsset);
+                EditorUtility.SetDirty(fontAsset.material);
+            }
         }
 
         private static Color ToTextEffectColorSpace(Color color)
