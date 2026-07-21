@@ -20,7 +20,9 @@ namespace LanhuRuntimeSync.EditorTools
         private const string DistanceFieldShader = "TextMeshPro/Distance Field";
         private const int EffectFontAtlasPadding = 32;
         private const int EffectFontAtlasSize = 2048;
-        private const float EffectThicknessCorrection = 0.5f;
+        private const float OutlineThicknessCorrection = 0.4f;
+        private const float FaceDilateCorrection = 0.5f;
+        private const float ShadowThicknessCorrection = 0.5f;
 
         public static void Apply(TextMeshProUGUI text, LanhuVisualStyle style)
         {
@@ -55,10 +57,10 @@ namespace LanhuRuntimeSync.EditorTools
 
             var pixelsPerEffectUnit = GetPixelsPerEffectUnit(text, baseMaterial);
             var outlineWidth = hasOutline
-                ? Mathf.Clamp01(style.OutlineWidth * EffectThicknessCorrection / pixelsPerEffectUnit)
+                ? Mathf.Clamp01(style.OutlineWidth * OutlineThicknessCorrection / pixelsPerEffectUnit)
                 : 0f;
             var faceDilate = hasOutline
-                ? ResolveFaceDilate(style.OutlineAlignment, outlineWidth)
+                ? ResolveFaceDilate(style.OutlineAlignment, outlineWidth * FaceDilateCorrection)
                 : 0f;
             var shadowOffset = hasShadow
                 ? new Vector2(
@@ -66,10 +68,10 @@ namespace LanhuRuntimeSync.EditorTools
                     Mathf.Clamp(style.ShadowOffset.y / pixelsPerEffectUnit, -1f, 1f))
                 : Vector2.zero;
             var shadowDilate = hasShadow
-                ? Mathf.Clamp(style.ShadowSpread * EffectThicknessCorrection / pixelsPerEffectUnit, -1f, 1f)
+                ? Mathf.Clamp(style.ShadowSpread * ShadowThicknessCorrection / pixelsPerEffectUnit, -1f, 1f)
                 : 0f;
             var shadowSoftness = hasShadow
-                ? Mathf.Clamp01(style.ShadowBlur * EffectThicknessCorrection / pixelsPerEffectUnit)
+                ? Mathf.Clamp01(style.ShadowBlur * ShadowThicknessCorrection / pixelsPerEffectUnit)
                 : 0f;
 
             var material = GetOrCreateMaterial(

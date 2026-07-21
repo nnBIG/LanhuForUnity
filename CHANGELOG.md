@@ -2,6 +2,11 @@
 
 All notable changes to Lanhu Runtime Sync are documented here.
 
+## 1.0.7 - 2026-07-21
+
+- Reduced TMP outline thickness by a further 20 percent and reduced Face Dilate to half of the calibrated outline value.
+- Kept Underlay offset, dilate, and softness calibration independent from the face and outline adjustment.
+
 ## 1.0.6 - 2026-07-21
 
 - Calibrated Photoshop text stroke, shadow spread, and shadow blur thickness for TMP SDF rendering while preserving the source shadow offset.
