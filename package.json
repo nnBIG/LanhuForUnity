@@ -1,6 +1,6 @@
 {
   "name": "io.github.nnbig.lanhu-for-unity",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "displayName": "Lanhu Runtime Sync",
   "description": "Import Lanhu design pages into Unity UGUI prefabs and update them incrementally by stable node ID.",
   "unity": "2021.3",

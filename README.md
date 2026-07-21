@@ -22,11 +22,13 @@ https://github.com/nnBIG/LanhuForUnity.git#main
 
 1. 在 Unity 中打开 `Tools > Lanhu Runtime Sync`，填写蓝湖项目 URL。
 2. 私有项目需要填写 Cookie；浏览器登录状态不会自动共享给 Unity。
-3. 在浏览器登录蓝湖，从开发者工具的 Network 面板选择一个成功的蓝湖 API 请求。可以复制 Request Headers 中完整的 `Cookie` 值，也可以右键请求并选择 `Copy as cURL`；两种内容都可以直接填入窗口，随后点击 `Save Local`。公开项目可以留空。
+3. 在浏览器登录蓝湖，从开发者工具的 Network 面板选择一个成功的蓝湖 API 请求。可以复制 Request Headers 中完整的 `Cookie` 值，也可以右键请求并选择 `Copy as cURL`；`-H 'cookie: ...'`、`-b '...'` 和 `--cookie '...'` 格式都可以直接填入窗口，随后点击 `Save Local`。看到格式识别成功的提示后再加载页面；公开项目可以留空。
 4. 选择页面后点击 `Import Selected Page`。
 5. 后续在生成的预制体或场景根节点上点击 `Pull Latest From Lanhu`，工具会按蓝湖节点 ID 更新原对象，不会重复创建同一页面。
 
 Cookie 只保存在本机 Unity `EditorPrefs` 中，不会写入项目文件。也可以通过本机环境变量 `LANHU_COOKIE` 提供。
+
+蓝湖返回 HTTP 401/403/418 时，通常表示 Cookie 已过期、复制不完整，或该 Cookie 对应的账号没有当前项目权限。重新登录后，应从状态为 200 的 `/api/project/...` 请求复制 Cookie/cURL，而不是图片、统计或失败请求。
 
 ## 导入模式
 
