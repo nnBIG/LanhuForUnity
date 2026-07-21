@@ -2,6 +2,14 @@
 
 All notable changes to Lanhu Runtime Sync are documented here.
 
+## 1.0.4 - 2026-07-21
+
+- Moved imported pages under a dedicated Canvas parent and fixed CanvasScaler reference resolution to use the Lanhu artboard size.
+- Added automatic migration for existing prefabs that previously stored Canvas and sync metadata on the same object.
+- Disabled TMP word wrapping and auto sizing for fixed Photoshop text frames, preserving source font sizes and text box dimensions.
+- Prevented intrinsic Black/Bold font assets from receiving an additional synthetic TMP bold weight.
+- Converted TMP outline and underlay colors for Unity Linear color space and applied Photoshop shadow distance using its source angle.
+
 ## 1.0.3 - 2026-07-21
 
 - Corrected Photoshop/Lanhu shadow fields so distance and spread percentage map to TMP Underlay correctly.
