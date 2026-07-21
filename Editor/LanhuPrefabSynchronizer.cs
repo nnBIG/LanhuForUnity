@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -782,7 +781,7 @@ namespace LanhuRuntimeSync.EditorTools
             var font = baseStyle?.Font;
             if (applyContent)
             {
-                text.text = ApplyHorizontalScale(BuildRichText(node.Text), font);
+                text.text = BuildRichText(node.Text);
                 text.richText = true;
             }
 
@@ -922,17 +921,6 @@ namespace LanhuRuntimeSync.EditorTools
             }
 
             return builder.ToString();
-        }
-
-        private static string ApplyHorizontalScale(string content, LanhuFontData font)
-        {
-            var scale = font?.HorizontalScale ?? 1f;
-            if (Mathf.Approximately(scale, 1f))
-            {
-                return content ?? string.Empty;
-            }
-
-            return $"<scale={scale.ToString("0.###", CultureInfo.InvariantCulture)}>{content ?? string.Empty}</scale>";
         }
 
         private static FontStyles ResolveFontStyle(LanhuFontData font)

@@ -461,7 +461,6 @@ namespace LanhuRuntimeSync.EditorTools
         public float Size;
         public float LineHeight;
         public float LetterSpacing;
-        public float HorizontalScale = 1f;
         public int Weight;
         public bool Bold;
         public bool Italic;
@@ -488,12 +487,7 @@ namespace LanhuRuntimeSync.EditorTools
             var decoration = FirstString(json["textDecoration"], json["decoration"]);
 
             var letterSpacing = json["letterSpacing"];
-            var letterSpacingUnit = LanhuDesignInfo.ReadString((letterSpacing as JObject)?["unit"]);
             var letterSpacingValue = ReadMetric(letterSpacing);
-            var horizontalScale = (letterSpacingUnit.IndexOf("percent", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                                   letterSpacingUnit.Contains("%")) && letterSpacingValue >= 50f
-                ? Mathf.Clamp(letterSpacingValue / 100f, 0.25f, 4f)
-                : 1f;
 
             return new LanhuFontData
             {
@@ -505,7 +499,6 @@ namespace LanhuRuntimeSync.EditorTools
                 Size = size,
                 LineHeight = ReadLineHeight(json["lineHeight"], size),
                 LetterSpacing = letterSpacingValue,
-                HorizontalScale = horizontalScale,
                 Weight = weight,
                 Bold = ReadFlag(json["bold"]),
                 Italic = ReadFlag(json["italic"]) || ContainsAny(descriptor, "italic", "oblique"),

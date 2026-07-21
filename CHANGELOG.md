@@ -2,6 +2,11 @@
 
 All notable changes to Lanhu Runtime Sync are documented here.
 
+## 1.0.6 - 2026-07-21
+
+- Calibrated Photoshop text stroke, shadow spread, and shadow blur thickness for TMP SDF rendering while preserving the source shadow offset.
+- Removed percentage-based horizontal scaling and no longer writes TMP `<scale>` tags into imported text content.
+
 ## 1.0.5 - 2026-07-21
 
 - Preserved Photoshop outside and inside stroke alignment with TMP Face Dilate instead of allowing centered SDF outlines to cover the glyph face.
