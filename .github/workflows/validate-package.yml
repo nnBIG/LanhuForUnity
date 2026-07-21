@@ -1,0 +1,28 @@
+name: Validate Unity Package
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate UPM package
+        shell: python
+        run: |
+          import json
+          import pathlib
+          import re
+
+          root = pathlib.Path(".")
+          manifest = json.loads((root / "package.json").read_text(encoding="utf-8"))
+          assert manifest["name"] == "io.github.nnbig.lanhu-for-unity"
+          assert re.fullmatch(r"\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?", manifest["version"])
+          assert (root / "Runtime" / "LanhuRuntimeSync.Runtime.asmdef").is_file()
+          assert (root / "Editor" / "LanhuRuntimeSync.Editor.asmdef").is_file()
+          assert (root / "Editor" / "LanhuPackageUpdater.cs").is_file()
+          assert not (root / "Generated").exists()
+          print(f"Validated {manifest['name']} {manifest['version']}")
