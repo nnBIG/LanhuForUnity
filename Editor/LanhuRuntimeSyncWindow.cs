@@ -51,8 +51,18 @@ namespace LanhuRuntimeSync.EditorTools
                 mCookie = EditorGUILayout.PasswordField("Login Cookie / cURL", mCookie);
                 if (GUILayout.Button("Save Local", GUILayout.Width(82f)))
                 {
-                    LanhuSessionStore.SaveCookie(mCookie);
-                    mReport = "Lanhu login cookie saved to local EditorPrefs only.";
+                    if (LanhuSessionStore.TryNormalize(mCookie, out var normalizedCookie, out var cookieError))
+                    {
+                        mCookie = normalizedCookie;
+                        LanhuSessionStore.SaveCookie(mCookie);
+                        mReport = string.IsNullOrWhiteSpace(mCookie)
+                            ? "Local Lanhu login cookie removed."
+                            : "Cookie/cURL format recognized. Login cookie saved to local EditorPrefs only.";
+                    }
+                    else
+                    {
+                        mReport = cookieError;
+                    }
                 }
 
                 if (GUILayout.Button("Forget", GUILayout.Width(62f)))
@@ -165,6 +175,11 @@ namespace LanhuRuntimeSync.EditorTools
                 return;
             }
 
+            if (!PrepareSessionCookie())
+            {
+                return;
+            }
+
             mBusy = true;
             mReport = "Loading Lanhu page list...";
             EditorPrefs.SetString(LastUrlPrefsKey, mSourceUrl);
@@ -213,6 +228,11 @@ namespace LanhuRuntimeSync.EditorTools
                 return;
             }
 
+            if (!PrepareSessionCookie())
+            {
+                return;
+            }
+
             mBusy = true;
             mReport = $"Importing '{design.Name}'...";
             EditorPrefs.SetString(LastUrlPrefsKey, mSourceUrl);
@@ -253,6 +273,18 @@ namespace LanhuRuntimeSync.EditorTools
                 mBusy = false;
                 Repaint();
             }
+        }
+
+        private bool PrepareSessionCookie()
+        {
+            if (LanhuSessionStore.TryNormalize(mCookie, out var normalizedCookie, out var error))
+            {
+                mCookie = normalizedCookie;
+                return true;
+            }
+
+            mReport = error;
+            return false;
         }
 
         private LanhuDesignInfo SelectedDesign => mDesigns.FirstOrDefault(design => design.Id == mSelectedDesignId);

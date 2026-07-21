@@ -22,6 +22,14 @@ namespace LanhuRuntimeSync.EditorTools
     {
         private const string CookiePrefsKey = "LanhuRuntimeSync.Cookie";
 
+        private static readonly Regex CurlCookieHeaderRegex = new Regex(
+            @"(?:^|\s)(?:-H|--header)(?:\s+|=)\s*\$?(?:'cookie:\s*(?<single>[^']*)'|\""cookie:\s*(?<double>[^\""\r\n]*)\""|cookie:\s*(?<bare>[^\s\\]+))",
+            RegexOptions.IgnoreCase);
+
+        private static readonly Regex CurlCookieOptionRegex = new Regex(
+            @"(?:^|\s)(?:-b|--cookie)(?:\s+|=)\s*\$?(?:'(?<single>[^']*)'|\""(?<double>[^\""\r\n]*)\""|(?<bare>[^\s\\]+))",
+            RegexOptions.IgnoreCase);
+
         public static string LoadCookie()
         {
             var environmentCookie = Environment.GetEnvironmentVariable("LANHU_COOKIE");
@@ -50,22 +58,29 @@ namespace LanhuRuntimeSync.EditorTools
         public static string Normalize(string cookie)
         {
             var raw = cookie ?? string.Empty;
-            var curlHeader = Regex.Match(
-                raw,
-                @"(?:-H|--header)\s+(?:'cookie:\s*(?<single>[^']*)'|\""cookie:\s*(?<double>[^\""\r\n]*)\"" )",
-                RegexOptions.IgnoreCase | RegexOptions.IgnorePatternWhitespace);
+            var curlHeader = CurlCookieHeaderRegex.Match(raw);
             if (curlHeader.Success)
             {
-                raw = curlHeader.Groups["single"].Success
-                    ? curlHeader.Groups["single"].Value
-                    : curlHeader.Groups["double"].Value;
+                raw = ReadCapturedValue(curlHeader);
             }
             else
             {
-                var copiedHeader = Regex.Match(raw, @"(?:^|\r?\n)\s*cookie:\s*(?<value>[^\r\n]+)", RegexOptions.IgnoreCase);
-                if (copiedHeader.Success)
+                var curlCookie = CurlCookieOptionRegex.Match(raw);
+                if (curlCookie.Success)
                 {
-                    raw = copiedHeader.Groups["value"].Value;
+                    raw = ReadCapturedValue(curlCookie);
+                }
+                else
+                {
+                    var copiedHeader = Regex.Match(raw, @"(?:^|\r?\n)\s*cookie:\s*(?<value>[^\r\n]+)", RegexOptions.IgnoreCase);
+                    if (copiedHeader.Success)
+                    {
+                        raw = copiedHeader.Groups["value"].Value;
+                    }
+                    else if (LooksLikeCurl(raw))
+                    {
+                        return string.Empty;
+                    }
                 }
             }
 
@@ -77,6 +92,51 @@ namespace LanhuRuntimeSync.EditorTools
             }
 
             return normalized;
+        }
+
+        public static bool TryNormalize(string input, out string normalized, out string error)
+        {
+            normalized = Normalize(input);
+            error = string.Empty;
+            if (string.IsNullOrWhiteSpace(input))
+            {
+                return true;
+            }
+
+            if (string.IsNullOrWhiteSpace(normalized))
+            {
+                error = LooksLikeCurl(input)
+                    ? "未在这段 cURL 中找到 Cookie。请复制成功的蓝湖 API 请求，并确认 cURL 中包含 -b、--cookie 或 Cookie 请求头。"
+                    : "Cookie 内容为空。";
+                return false;
+            }
+
+            if (normalized.IndexOf('=') <= 0)
+            {
+                error = "Cookie 格式无法识别。请粘贴完整 Cookie 请求头，或成功蓝湖 API 请求的 Copy as cURL 内容。";
+                return false;
+            }
+
+            return true;
+        }
+
+        private static string ReadCapturedValue(Match match)
+        {
+            foreach (var groupName in new[] { "single", "double", "bare" })
+            {
+                var group = match.Groups[groupName];
+                if (group.Success)
+                {
+                    return group.Value;
+                }
+            }
+
+            return string.Empty;
+        }
+
+        private static bool LooksLikeCurl(string value)
+        {
+            return Regex.IsMatch(value ?? string.Empty, @"^\s*curl(?:\.exe)?(?:\s|$)", RegexOptions.IgnoreCase);
         }
     }
 
@@ -155,9 +215,10 @@ namespace LanhuRuntimeSync.EditorTools
                 {
                     if (authenticated && IsAccessDenied(response.StatusCode, body))
                     {
+                        var status = $"HTTP {(int)response.StatusCode}";
                         var message = string.IsNullOrWhiteSpace(mCookie)
-                            ? "这是私有蓝湖项目，浏览器登录状态不会自动共享给 Unity。请从已登录蓝湖的 API 请求中复制完整 Cookie 请求头，填入 Login Cookie 后点击 Save Local。"
-                            : "蓝湖拒绝了当前 Cookie，它可能已过期或复制不完整。请重新登录蓝湖，并从一个成功的 API 请求中复制完整 Cookie 请求头。";
+                            ? $"这是私有蓝湖项目（{status}），浏览器登录状态不会自动共享给 Unity。请从已登录蓝湖的成功 API 请求中复制 Cookie 或 Copy as cURL，填入 Login Cookie 后点击 Save Local。"
+                            : $"蓝湖拒绝了当前登录信息（{status}）。Cookie 可能已过期，复制内容可能不完整，或者当前蓝湖账号没有这个项目的访问权限。";
                         throw new LanhuAccessException(message);
                     }
 
