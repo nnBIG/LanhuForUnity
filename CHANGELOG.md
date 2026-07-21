@@ -2,6 +2,12 @@
 
 All notable changes to Lanhu Runtime Sync are documented here.
 
+## 1.0.3 - 2026-07-21
+
+- Corrected Photoshop/Lanhu shadow fields so distance and spread percentage map to TMP Underlay correctly.
+- Clamped TMP Outline and Underlay values to their shader-supported ranges.
+- Set imported TMP character spacing to zero.
+
 ## 1.0.2 - 2026-07-21
 
 - Replaced legacy UGUI `Shadow`/`Outline` components on TMP text with TMP SDF material effects.
