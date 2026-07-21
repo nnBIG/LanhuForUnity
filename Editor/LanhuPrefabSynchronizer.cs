@@ -750,15 +750,7 @@ namespace LanhuRuntimeSync.EditorTools
 
                 ReportUnsupportedSegmentFonts(node.Text, font, report);
 
-                if (node.Style?.OutlineColor != null)
-                {
-                    text.outlineColor = node.Style.OutlineColor.Value.ToUnityColor();
-                    text.outlineWidth = Mathf.Clamp01(node.Style.OutlineWidth / Mathf.Max(1f, text.fontSize));
-                }
-                else
-                {
-                    text.outlineWidth = 0f;
-                }
+                LanhuTextMaterialUtility.Apply(text, node.Style);
             }
 
             text.enabled = !suppressed;
@@ -769,38 +761,6 @@ namespace LanhuRuntimeSync.EditorTools
                 image.enabled = false;
             }
 
-            if (applyStyle)
-            {
-                ApplyShadow(gameObject, text, node.Style, suppressed);
-            }
-            else if (suppressed)
-            {
-                var shadow = gameObject.GetComponent<Shadow>();
-                if (shadow)
-                {
-                    shadow.enabled = false;
-                }
-            }
-        }
-
-        private static void ApplyShadow(GameObject gameObject, Graphic graphic, LanhuVisualStyle style, bool suppressed)
-        {
-            var shadow = gameObject.GetComponent<Shadow>();
-            if (style?.ShadowColor == null)
-            {
-                if (shadow)
-                {
-                    shadow.enabled = false;
-                }
-
-                return;
-            }
-
-            shadow = shadow ? shadow : gameObject.AddComponent<Shadow>();
-            shadow.effectColor = style.ShadowColor.Value.ToUnityColor();
-            shadow.effectDistance = style.ShadowOffset;
-            shadow.useGraphicAlpha = true;
-            shadow.enabled = !suppressed && graphic.enabled;
         }
 
         private static void DisableManagedGraphics(GameObject gameObject)

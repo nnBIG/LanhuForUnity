@@ -583,6 +583,8 @@ namespace LanhuRuntimeSync.EditorTools
         public float OutlineWidth;
         public LanhuColor? ShadowColor;
         public Vector2 ShadowOffset;
+        public float ShadowBlur;
+        public float ShadowSpread;
 
         public static LanhuVisualStyle Parse(JObject json)
         {
@@ -611,10 +613,13 @@ namespace LanhuRuntimeSync.EditorTools
                 .FirstOrDefault(item => LanhuDesignInfo.ReadBool(item["isEnabled"], true) && !LanhuDesignInfo.ReadBool(item["inset"]));
             if (shadow != null)
             {
+                var offset = shadow["offset"] as JObject;
                 result.ShadowColor = LanhuColor.ParseNullable(shadow["color"] as JObject, ReadOpacity(shadow["opacity"], 1f));
                 result.ShadowOffset = new Vector2(
-                    LanhuDesignInfo.ReadFloat(shadow["x"]),
-                    -LanhuDesignInfo.ReadFloat(shadow["y"]));
+                    ReadMetric(shadow["x"], shadow["offsetX"], offset?["x"]),
+                    -ReadMetric(shadow["y"], shadow["offsetY"], offset?["y"]));
+                result.ShadowBlur = Mathf.Max(0f, ReadMetric(shadow["blur"], shadow["blurRadius"], shadow["radius"]));
+                result.ShadowSpread = ReadMetric(shadow["spread"], shadow["spreadRadius"]);
             }
 
             return result;
@@ -624,6 +629,30 @@ namespace LanhuRuntimeSync.EditorTools
         {
             var value = LanhuDesignInfo.ReadFloat(token, fallback);
             return Mathf.Clamp01(value > 1f ? value / 100f : value);
+        }
+
+        private static float ReadMetric(params JToken[] tokens)
+        {
+            foreach (var source in tokens)
+            {
+                if (source == null || source.Type == JTokenType.Null)
+                {
+                    continue;
+                }
+
+                var token = source;
+                if (source is JObject valueObject)
+                {
+                    token = valueObject["value"] ?? valueObject["amount"] ?? valueObject["px"];
+                }
+
+                if (token != null && token.Type != JTokenType.Null && !string.IsNullOrWhiteSpace(token.ToString()))
+                {
+                    return LanhuDesignInfo.ReadFloat(token);
+                }
+            }
+
+            return 0f;
         }
     }
 
