@@ -497,7 +497,7 @@ namespace LanhuRuntimeSync.EditorTools
                 LineHeight = ReadLineHeight(json["lineHeight"], size),
                 LetterSpacing = ReadMetric(json["letterSpacing"]),
                 Weight = weight,
-                Bold = ReadFlag(json["bold"]) || weight >= 600,
+                Bold = ReadFlag(json["bold"]),
                 Italic = ReadFlag(json["italic"]) || ContainsAny(descriptor, "italic", "oblique"),
                 Underline = ReadFlag(FirstToken(json["underline"], json["isUnderline"])) || ContainsAny(decoration, "underline"),
                 Strikethrough = ReadFlag(FirstToken(json["strikethrough"], json["strikeThrough"], json["isStrikethrough"])) ||
@@ -631,7 +631,10 @@ namespace LanhuRuntimeSync.EditorTools
                 if (usesPhotoshopShadowEncoding)
                 {
                     var spreadRatio = Mathf.Clamp01(rawSpread / 100f);
-                    result.ShadowOffset = new Vector2(0f, -rawX);
+                    var angleRadians = rawY * Mathf.Deg2Rad;
+                    result.ShadowOffset = new Vector2(
+                        -Mathf.Cos(angleRadians) * rawX,
+                        -Mathf.Sin(angleRadians) * rawX);
                     result.ShadowSpread = rawBlur * spreadRatio;
                     result.ShadowBlur = rawBlur * (1f - spreadRatio);
                 }

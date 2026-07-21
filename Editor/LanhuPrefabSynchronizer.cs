@@ -97,7 +97,8 @@ namespace LanhuRuntimeSync.EditorTools
                     existingPrefabPath = BuildNewPrefabPath(outputFolder, document.Design?.Name, document.Design?.Id);
                 }
 
-                await ApplyDocumentAsync(prefabContents, document, client, options, report);
+                var pageRoot = EnsurePageRoot(prefabContents, document.Design?.Name);
+                await ApplyDocumentAsync(pageRoot, document, client, options, report);
                 var savedPrefab = PrefabUtility.SaveAsPrefabAsset(prefabContents, existingPrefabPath);
                 if (!savedPrefab)
                 {
@@ -196,13 +197,8 @@ namespace LanhuRuntimeSync.EditorTools
                 var contents = PrefabUtility.LoadPrefabContents(prefabPath);
                 try
                 {
-                    var contentsRoot = contents.GetComponentInChildren<LanhuRuntimeSyncRoot>(true);
-                    if (!contentsRoot)
-                    {
-                        throw new InvalidOperationException("The prefab no longer contains a LanhuRuntimeSyncRoot component.");
-                    }
-
-                    await ApplyDocumentAsync(contentsRoot.gameObject, document, client, options, report);
+                    var contentsRoot = EnsurePageRoot(contents, document.Design?.Name);
+                    await ApplyDocumentAsync(contentsRoot, document, client, options, report);
                     PrefabUtility.SaveAsPrefabAsset(contents, prefabPath);
                 }
                 finally
@@ -639,21 +635,92 @@ namespace LanhuRuntimeSync.EditorTools
             importer.SaveAndReimport();
         }
 
-        private static void ConfigureRootCanvas(GameObject rootObject, RectTransform rect, LanhuFrame frame)
+        private static void ConfigureRootCanvas(GameObject pageObject, RectTransform pageRect, LanhuFrame frame)
         {
-            rect.anchorMin = rect.anchorMax = new Vector2(0.5f, 0.5f);
-            rect.pivot = new Vector2(0.5f, 0.5f);
-            rect.anchoredPosition = Vector2.zero;
-            rect.sizeDelta = new Vector2(Mathf.Max(1f, frame.Width), Mathf.Max(1f, frame.Height));
+            var canvasObject = EnsureCanvasParent(pageObject);
+            var referenceResolution = new Vector2(Mathf.Max(1f, frame.Width), Mathf.Max(1f, frame.Height));
 
-            var canvas = GetOrAdd<Canvas>(rootObject);
+            pageRect.anchorMin = pageRect.anchorMax = new Vector2(0.5f, 0.5f);
+            pageRect.pivot = new Vector2(0.5f, 0.5f);
+            pageRect.anchoredPosition = Vector2.zero;
+            pageRect.sizeDelta = referenceResolution;
+            pageRect.localScale = Vector3.one;
+            pageRect.localRotation = Quaternion.identity;
+
+            var canvas = GetOrAdd<Canvas>(canvasObject);
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-            var scaler = GetOrAdd<CanvasScaler>(rootObject);
+            var scaler = GetOrAdd<CanvasScaler>(canvasObject);
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-            scaler.referenceResolution = rect.sizeDelta;
+            scaler.referenceResolution = referenceResolution;
             scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
             scaler.matchWidthOrHeight = 0.5f;
-            GetOrAdd<GraphicRaycaster>(rootObject);
+            GetOrAdd<GraphicRaycaster>(canvasObject);
+
+            var uiLayer = LayerMask.NameToLayer("UI");
+            if (uiLayer >= 0)
+            {
+                SetLayerRecursively(canvasObject, uiLayer);
+            }
+        }
+
+        private static GameObject EnsureCanvasParent(GameObject pageObject)
+        {
+            var parentCanvas = pageObject.transform.parent
+                ? pageObject.transform.parent.GetComponentInParent<Canvas>()
+                : null;
+            if (parentCanvas)
+            {
+                RemoveCanvasComponents(pageObject);
+                return parentCanvas.gameObject;
+            }
+
+            var oldParent = pageObject.transform.parent;
+            var oldSiblingIndex = pageObject.transform.GetSiblingIndex();
+            var canvasObject = new GameObject(
+                $"{SafeObjectName(pageObject.name, "Lanhu UI")} Canvas",
+                typeof(RectTransform),
+                typeof(Canvas),
+                typeof(CanvasScaler),
+                typeof(GraphicRaycaster));
+            if (oldParent)
+            {
+                canvasObject.transform.SetParent(oldParent, false);
+                canvasObject.transform.SetSiblingIndex(oldSiblingIndex);
+            }
+
+            pageObject.transform.SetParent(canvasObject.transform, false);
+            RemoveCanvasComponents(pageObject);
+            return canvasObject;
+        }
+
+        private static void RemoveCanvasComponents(GameObject pageObject)
+        {
+            var raycaster = pageObject.GetComponent<GraphicRaycaster>();
+            if (raycaster)
+            {
+                UnityEngine.Object.DestroyImmediate(raycaster);
+            }
+
+            var scaler = pageObject.GetComponent<CanvasScaler>();
+            if (scaler)
+            {
+                UnityEngine.Object.DestroyImmediate(scaler);
+            }
+
+            var canvas = pageObject.GetComponent<Canvas>();
+            if (canvas)
+            {
+                UnityEngine.Object.DestroyImmediate(canvas);
+            }
+        }
+
+        private static void SetLayerRecursively(GameObject root, int layer)
+        {
+            root.layer = layer;
+            foreach (Transform child in root.transform)
+            {
+                SetLayerRecursively(child.gameObject, layer);
+            }
         }
 
         private static void ApplyRect(RectTransform rect, LanhuFrame frame, LanhuFrame parentFrame)
@@ -721,12 +788,14 @@ namespace LanhuRuntimeSync.EditorTools
                 text.fontStyle = ResolveFontStyle(font);
                 text.fontWeight = ResolveFontWeight(font);
                 text.alignment = ResolveAlignment(font);
+                text.enableAutoSizing = false;
                 text.characterSpacing = 0f;
                 text.lineSpacing = font != null && font.LineHeight > 0f
                     ? font.LineHeight - text.fontSize
                     : 0f;
-                text.enableWordWrapping = true;
+                text.enableWordWrapping = false;
                 text.overflowMode = TextOverflowModes.Overflow;
+                text.margin = Vector4.zero;
                 text.raycastTarget = false;
 
                 var fontAsset = FindFontAsset(font);
@@ -853,7 +922,7 @@ namespace LanhuRuntimeSync.EditorTools
         private static FontStyles ResolveFontStyle(LanhuFontData font)
         {
             var style = FontStyles.Normal;
-            if (font?.IsBold == true)
+            if (font?.Bold == true)
             {
                 style |= FontStyles.Bold;
             }
@@ -878,18 +947,7 @@ namespace LanhuRuntimeSync.EditorTools
 
         private static FontWeight ResolveFontWeight(LanhuFontData font)
         {
-            switch (font?.EffectiveWeight ?? 400)
-            {
-                case 100: return FontWeight.Thin;
-                case 200: return FontWeight.ExtraLight;
-                case 300: return FontWeight.Light;
-                case 500: return FontWeight.Medium;
-                case 600: return FontWeight.SemiBold;
-                case 700: return FontWeight.Bold;
-                case 800: return FontWeight.Heavy;
-                case 900: return FontWeight.Black;
-                default: return FontWeight.Regular;
-            }
+            return font?.Bold == true ? FontWeight.Bold : FontWeight.Regular;
         }
 
         private static TextAlignmentOptions ResolveAlignment(LanhuFontData font)
@@ -1064,15 +1122,44 @@ namespace LanhuRuntimeSync.EditorTools
                 .FirstOrDefault(root => root && root.gameObject.scene.IsValid() && root.ProjectId == projectId && root.ImageId == imageId);
         }
 
+        private static GameObject EnsurePageRoot(GameObject prefabRoot, string designName)
+        {
+            var syncRoot = prefabRoot.GetComponentInChildren<LanhuRuntimeSyncRoot>(true);
+            if (syncRoot && syncRoot.gameObject != prefabRoot)
+            {
+                return syncRoot.gameObject;
+            }
+
+            var pageObject = new GameObject(
+                SafeObjectName(designName, "Lanhu UI"),
+                typeof(RectTransform),
+                typeof(LanhuRuntimeSyncRoot));
+            pageObject.transform.SetParent(prefabRoot.transform, false);
+
+            if (syncRoot)
+            {
+                var existingChildren = prefabRoot.transform.Cast<Transform>()
+                    .Where(child => child.gameObject != pageObject)
+                    .ToArray();
+                foreach (var child in existingChildren)
+                {
+                    child.SetParent(pageObject.transform, false);
+                }
+
+                UnityEngine.Object.DestroyImmediate(syncRoot);
+            }
+
+            return pageObject;
+        }
+
         private static GameObject CreateRootObject(string designName)
         {
             return new GameObject(
-                SafeObjectName(designName, "Lanhu UI"),
+                $"{SafeObjectName(designName, "Lanhu UI")} Canvas",
                 typeof(RectTransform),
                 typeof(Canvas),
                 typeof(CanvasScaler),
-                typeof(GraphicRaycaster),
-                typeof(LanhuRuntimeSyncRoot));
+                typeof(GraphicRaycaster));
         }
 
         private static string BuildNewPrefabPath(string folder, string designName, string imageId)

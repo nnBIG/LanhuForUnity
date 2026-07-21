@@ -32,8 +32,8 @@ namespace LanhuRuntimeSync.EditorTools
                 return;
             }
 
-            var outlineColor = style?.OutlineColor?.ToUnityColor() ?? Color.clear;
-            var shadowColor = style?.ShadowColor?.ToUnityColor() ?? Color.clear;
+            var outlineColor = ToTextEffectColorSpace(style?.OutlineColor?.ToUnityColor() ?? Color.clear);
+            var shadowColor = ToTextEffectColorSpace(style?.ShadowColor?.ToUnityColor() ?? Color.clear);
             var hasOutline = style != null && style.OutlineWidth > 0f && outlineColor.a > 0f;
             var hasShadow = style != null && shadowColor.a > 0f;
             if (!hasOutline && !hasShadow)
@@ -211,6 +211,11 @@ namespace LanhuRuntimeSync.EditorTools
                     ? text.font.atlasPadding + 1f
                     : 5f;
             return Mathf.Max(0.001f, gradientScale * fontSize / pointSize);
+        }
+
+        private static Color ToTextEffectColorSpace(Color color)
+        {
+            return QualitySettings.activeColorSpace == ColorSpace.Linear ? color.linear : color;
         }
 
         private static void AssignMaterial(TMP_Text text, Material material)
