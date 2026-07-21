@@ -2,6 +2,12 @@
 
 All notable changes to Lanhu Runtime Sync are documented here.
 
+## 1.0.2 - 2026-07-21
+
+- Replaced legacy UGUI `Shadow`/`Outline` components on TMP text with TMP SDF material effects.
+- Added deterministic reusable TMP materials keyed by font, outline, and shadow parameters.
+- Added Lanhu text-shadow blur and spread parsing and automatic cleanup of legacy text effects.
+
 ## 1.0.1 - 2026-07-21
 
 - Added Cookie extraction for cURL `-b`, `--cookie`, and header variants.
