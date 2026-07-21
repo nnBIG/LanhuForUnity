@@ -206,7 +206,11 @@ namespace LanhuRuntimeSync.EditorTools
                 return document;
             }
 
-            document.Root = LanhuNode.Parse(artboard, string.Empty, true, document.Warnings);
+            var hostName = LanhuDesignInfo.ReadString(layerJson["meta"]?["host"]?["name"]);
+            var pluginName = LanhuDesignInfo.ReadString(layerJson["meta"]?["plugin"]?["name"]);
+            var usesPhotoshopShadowEncoding = hostName.IndexOf("photoshop", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                                              pluginName.IndexOf("photoshop", StringComparison.OrdinalIgnoreCase) >= 0;
+            document.Root = LanhuNode.Parse(artboard, string.Empty, true, usesPhotoshopShadowEncoding, document.Warnings);
             if (document.Root != null)
             {
                 document.Root.Visible = true;
@@ -257,7 +261,12 @@ namespace LanhuRuntimeSync.EditorTools
             }
         }
 
-        public static LanhuNode Parse(JObject json, string parentPath, bool isRoot, ICollection<string> warnings)
+        public static LanhuNode Parse(
+            JObject json,
+            string parentPath,
+            bool isRoot,
+            bool usesPhotoshopShadowEncoding,
+            ICollection<string> warnings)
         {
             if (json == null)
             {
@@ -297,14 +306,14 @@ namespace LanhuRuntimeSync.EditorTools
                 Frame = LanhuFrame.Parse((isRoot ? json["realFrame"] : null) as JObject ?? json["frame"] as JObject),
                 ImageUrl = ReadImageUrl(json),
                 Text = LanhuTextData.Parse(json["text"] as JObject),
-                Style = LanhuVisualStyle.Parse(json["style"] as JObject)
+                Style = LanhuVisualStyle.Parse(json["style"] as JObject, usesPhotoshopShadowEncoding)
             };
 
             if (json["layers"] is JArray layers)
             {
                 foreach (var childJson in layers.OfType<JObject>())
                 {
-                    var child = Parse(childJson, path, false, warnings);
+                    var child = Parse(childJson, path, false, usesPhotoshopShadowEncoding, warnings);
                     if (child != null)
                     {
                         node.Children.Add(child);
@@ -586,7 +595,7 @@ namespace LanhuRuntimeSync.EditorTools
         public float ShadowBlur;
         public float ShadowSpread;
 
-        public static LanhuVisualStyle Parse(JObject json)
+        public static LanhuVisualStyle Parse(JObject json, bool usesPhotoshopShadowEncoding = false)
         {
             if (json == null)
             {
@@ -614,12 +623,24 @@ namespace LanhuRuntimeSync.EditorTools
             if (shadow != null)
             {
                 var offset = shadow["offset"] as JObject;
+                var rawX = ReadMetric(shadow["x"], shadow["offsetX"], offset?["x"]);
+                var rawY = ReadMetric(shadow["y"], shadow["offsetY"], offset?["y"]);
+                var rawBlur = Mathf.Max(0f, ReadMetric(shadow["blur"], shadow["blurRadius"], shadow["radius"]));
+                var rawSpread = ReadMetric(shadow["spread"], shadow["spreadRadius"]);
                 result.ShadowColor = LanhuColor.ParseNullable(shadow["color"] as JObject, ReadOpacity(shadow["opacity"], 1f));
-                result.ShadowOffset = new Vector2(
-                    ReadMetric(shadow["x"], shadow["offsetX"], offset?["x"]),
-                    -ReadMetric(shadow["y"], shadow["offsetY"], offset?["y"]));
-                result.ShadowBlur = Mathf.Max(0f, ReadMetric(shadow["blur"], shadow["blurRadius"], shadow["radius"]));
-                result.ShadowSpread = ReadMetric(shadow["spread"], shadow["spreadRadius"]);
+                if (usesPhotoshopShadowEncoding)
+                {
+                    var spreadRatio = Mathf.Clamp01(rawSpread / 100f);
+                    result.ShadowOffset = new Vector2(0f, -rawX);
+                    result.ShadowSpread = rawBlur * spreadRatio;
+                    result.ShadowBlur = rawBlur * (1f - spreadRatio);
+                }
+                else
+                {
+                    result.ShadowOffset = new Vector2(rawX, -rawY);
+                    result.ShadowBlur = rawBlur;
+                    result.ShadowSpread = rawSpread;
+                }
             }
 
             return result;

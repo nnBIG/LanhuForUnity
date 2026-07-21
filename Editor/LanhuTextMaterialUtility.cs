@@ -47,13 +47,15 @@ namespace LanhuRuntimeSync.EditorTools
                 ? Mathf.Clamp01(style.OutlineWidth / pixelsPerEffectUnit)
                 : 0f;
             var shadowOffset = hasShadow
-                ? style.ShadowOffset / pixelsPerEffectUnit
+                ? new Vector2(
+                    Mathf.Clamp(style.ShadowOffset.x / pixelsPerEffectUnit, -1f, 1f),
+                    Mathf.Clamp(style.ShadowOffset.y / pixelsPerEffectUnit, -1f, 1f))
                 : Vector2.zero;
             var shadowDilate = hasShadow
-                ? style.ShadowSpread / pixelsPerEffectUnit
+                ? Mathf.Clamp(style.ShadowSpread / pixelsPerEffectUnit, -1f, 1f)
                 : 0f;
             var shadowSoftness = hasShadow
-                ? Mathf.Max(0f, style.ShadowBlur / pixelsPerEffectUnit)
+                ? Mathf.Clamp01(style.ShadowBlur / pixelsPerEffectUnit)
                 : 0f;
 
             var material = GetOrCreateMaterial(

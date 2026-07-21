@@ -721,7 +721,7 @@ namespace LanhuRuntimeSync.EditorTools
                 text.fontStyle = ResolveFontStyle(font);
                 text.fontWeight = ResolveFontWeight(font);
                 text.alignment = ResolveAlignment(font);
-                text.characterSpacing = font?.LetterSpacing ?? 0f;
+                text.characterSpacing = 0f;
                 text.lineSpacing = font != null && font.LineHeight > 0f
                     ? font.LineHeight - text.fontSize
                     : 0f;
