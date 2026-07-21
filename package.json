@@ -1,0 +1,31 @@
+{
+  "name": "io.github.nnbig.lanhu-for-unity",
+  "version": "1.0.0",
+  "displayName": "Lanhu Runtime Sync",
+  "description": "Import Lanhu design pages into Unity UGUI prefabs and update them incrementally by stable node ID.",
+  "unity": "2021.3",
+  "author": {
+    "name": "nnBIG and contributors",
+    "url": "https://github.com/nnBIG/LanhuForUnity"
+  },
+  "dependencies": {
+    "com.unity.nuget.newtonsoft-json": "3.0.2",
+    "com.unity.textmeshpro": "3.0.6",
+    "com.unity.ugui": "1.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/nnBIG/LanhuForUnity.git"
+  },
+  "documentationUrl": "https://github.com/nnBIG/LanhuForUnity#readme",
+  "changelogUrl": "https://github.com/nnBIG/LanhuForUnity/blob/main/CHANGELOG.md",
+  "licensesUrl": "https://github.com/nnBIG/LanhuForUnity/blob/main/LICENSE.md",
+  "keywords": [
+    "lanhu",
+    "unity",
+    "ugui",
+    "design-to-code",
+    "prefab"
+  ],
+  "lanhuUpdaterBranch": "main"
+}
