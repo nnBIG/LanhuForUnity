@@ -58,7 +58,8 @@ namespace LanhuRuntimeSync.EditorTools
 
     internal static class LanhuPrefabSynchronizer
     {
-        private const string GeneratedRootFolder = "Assets/LanhuRuntimeSync/Generated";
+        private const string SpritesRootFolder = "Assets/Sprites";
+        private const string LegacyGeneratedRootFolder = "Assets/LanhuRuntimeSync/Generated";
         private static readonly Dictionary<string, TMP_FontAsset> FontCache = new Dictionary<string, TMP_FontAsset>(StringComparer.OrdinalIgnoreCase);
 
         public static async Task<LanhuImportReport> ImportOrUpdateAsync(
@@ -309,8 +310,7 @@ namespace LanhuRuntimeSync.EditorTools
             }
 
             var sprites = await DownloadSpritesAsync(
-                document.Source.ProjectId,
-                document.Design.Id,
+                document.Design.Name,
                 spriteRequests,
                 existingBindings,
                 client,
@@ -407,7 +407,7 @@ namespace LanhuRuntimeSync.EditorTools
                 }
 
                 rect.SetSiblingIndex(Mathf.Clamp(siblingIndex, 0, Mathf.Max(0, parent.childCount - 1)));
-                ApplyRect(rect, node.Frame, parentFrame, node.Rotation);
+                ApplyRect(rect, node.Frame, parentFrame);
             }
 
             nodeObject.name = SafeObjectName(node.Name, "Lanhu Node");
@@ -548,8 +548,7 @@ namespace LanhuRuntimeSync.EditorTools
         }
 
         private static async Task<Dictionary<string, Sprite>> DownloadSpritesAsync(
-            string projectId,
-            string imageId,
+            string designName,
             IEnumerable<SpriteRequest> requests,
             IReadOnlyDictionary<string, LanhuRuntimeBinding> existingBindings,
             LanhuApiClient client,
@@ -562,7 +561,7 @@ namespace LanhuRuntimeSync.EditorTools
                 .GroupBy(request => request.NodeId)
                 .Select(group => group.First())
                 .ToArray();
-            var spriteFolder = $"{GeneratedRootFolder}/{SafePathPart(projectId, "Project")}/{SafePathPart(imageId, "Design")}/Sprites";
+            var spriteFolder = $"{SpritesRootFolder}/{SafePathPart(designName, "Lanhu UI")}";
             EnsureAssetFolder(spriteFolder);
 
             for (var index = 0; index < uniqueRequests.Length; index++)
@@ -577,7 +576,9 @@ namespace LanhuRuntimeSync.EditorTools
                                       binding &&
                                       binding.LastImageUrl == request.Url &&
                                       !string.IsNullOrWhiteSpace(binding.LastAssetPath);
-                var existingAssetPath = existingMatches ? binding.LastAssetPath : assetPath;
+                var existingAssetPath = existingMatches
+                    ? MoveManagedSpriteAsset(binding.LastAssetPath, assetPath, report)
+                    : assetPath;
                 var sprite = AssetDatabase.LoadAssetAtPath<Sprite>(existingAssetPath);
                 if (!forceDownload && existingMatches && sprite)
                 {
@@ -590,7 +591,7 @@ namespace LanhuRuntimeSync.EditorTools
                 if (binding &&
                     !string.IsNullOrWhiteSpace(binding.LastAssetPath) &&
                     !string.Equals(binding.LastAssetPath, assetPath, StringComparison.Ordinal) &&
-                    binding.LastAssetPath.StartsWith(GeneratedRootFolder + "/", StringComparison.Ordinal))
+                    IsManagedSpritePath(binding.LastAssetPath))
                 {
                     AssetDatabase.DeleteAsset(binding.LastAssetPath);
                 }
@@ -614,6 +615,41 @@ namespace LanhuRuntimeSync.EditorTools
 
             EditorUtility.ClearProgressBar();
             return result;
+        }
+
+        private static string MoveManagedSpriteAsset(string currentPath, string targetPath, LanhuImportReport report)
+        {
+            if (string.IsNullOrWhiteSpace(currentPath) || string.Equals(currentPath, targetPath, StringComparison.Ordinal))
+            {
+                return targetPath;
+            }
+
+            var currentAsset = AssetDatabase.LoadAssetAtPath<Sprite>(currentPath);
+            if (!currentAsset || !IsManagedSpritePath(currentPath))
+            {
+                return currentAsset ? currentPath : targetPath;
+            }
+
+            if (AssetDatabase.LoadAssetAtPath<Sprite>(targetPath))
+            {
+                return targetPath;
+            }
+
+            EnsureAssetFolder(Path.GetDirectoryName(targetPath)?.Replace('\\', '/') ?? SpritesRootFolder);
+            var error = AssetDatabase.MoveAsset(currentPath, targetPath);
+            if (string.IsNullOrWhiteSpace(error))
+            {
+                return targetPath;
+            }
+
+            report.Warnings.Add($"Could not move sprite '{currentPath}' to the Figma-style folder '{targetPath}': {error}");
+            return currentPath;
+        }
+
+        private static bool IsManagedSpritePath(string assetPath)
+        {
+            return assetPath.StartsWith(LegacyGeneratedRootFolder + "/", StringComparison.Ordinal) ||
+                   assetPath.StartsWith(SpritesRootFolder + "/", StringComparison.Ordinal);
         }
 
         private static void ConfigureTextureImporter(string assetPath)
@@ -727,21 +763,14 @@ namespace LanhuRuntimeSync.EditorTools
             }
         }
 
-        private static void ApplyRect(RectTransform rect, LanhuFrame frame, LanhuFrame parentFrame, float rotation)
+        private static void ApplyRect(RectTransform rect, LanhuFrame frame, LanhuFrame parentFrame)
         {
-            var size = new Vector2(Mathf.Max(0.01f, frame.Width), Mathf.Max(0.01f, frame.Height));
-            var relativeLeft = frame.Left - parentFrame.Left;
-            var relativeTop = frame.Top - parentFrame.Top;
-
-            // Match Figma import transforms: center pivot/anchor while preserving the source absolute bounds.
-            rect.anchorMin = rect.anchorMax = new Vector2(0.5f, 0.5f);
-            rect.pivot = new Vector2(0.5f, 0.5f);
-            rect.sizeDelta = size;
-            rect.anchoredPosition = new Vector2(
-                relativeLeft + size.x * 0.5f - parentFrame.Width * 0.5f,
-                parentFrame.Height * 0.5f - relativeTop - size.y * 0.5f);
+            rect.anchorMin = rect.anchorMax = new Vector2(0f, 1f);
+            rect.pivot = new Vector2(0f, 1f);
+            rect.anchoredPosition = new Vector2(frame.Left - parentFrame.Left, -(frame.Top - parentFrame.Top));
+            rect.sizeDelta = new Vector2(Mathf.Max(0.01f, frame.Width), Mathf.Max(0.01f, frame.Height));
             rect.localScale = Vector3.one;
-            rect.localRotation = Quaternion.Euler(0f, 0f, rotation);
+            rect.localRotation = Quaternion.identity;
         }
 
         private static void ApplyImage(

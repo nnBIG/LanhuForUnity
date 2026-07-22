@@ -13,8 +13,10 @@ namespace LanhuRuntimeSync.EditorTools
 {
     internal static class LanhuTextMaterialUtility
     {
-        private const string MaterialFolder = "Assets/LanhuRuntimeSync/Generated/TMP Materials";
-        private const string EffectFontFolder = "Assets/LanhuRuntimeSync/Generated/TMP Fonts";
+        private const string MaterialFolder = "Assets/Fonts/TMP Materials";
+        private const string EffectFontFolder = "Assets/Fonts/Sdf";
+        private const string LegacyMaterialFolder = "Assets/LanhuRuntimeSync/Generated/TMP Materials";
+        private const string LegacyEffectFontFolder = "Assets/LanhuRuntimeSync/Generated/TMP Fonts";
         private const string UnderlayInnerKeyword = "UNDERLAY_INNER";
         private const string MobileDistanceFieldShader = "TextMeshPro/Mobile/Distance Field";
         private const string DistanceFieldShader = "TextMeshPro/Distance Field";
@@ -136,6 +138,7 @@ namespace LanhuRuntimeSync.EditorTools
             var effectName = $"{SafeName(text.font ? text.font.name : baseMaterial.name)}_{(hasOutline ? "Outline" : "NoOutline")}_{(hasShadow ? "Shadow" : "NoShadow")}_{StableHash(signature)}";
             EnsureAssetFolder(MaterialFolder);
             var assetPath = $"{MaterialFolder}/{effectName}.mat";
+            MoveLegacyAsset($"{LegacyMaterialFolder}/{effectName}.mat", assetPath);
             var material = AssetDatabase.LoadAssetAtPath<Material>(assetPath);
             if (material)
             {
@@ -271,6 +274,7 @@ namespace LanhuRuntimeSync.EditorTools
             EnsureAssetFolder(EffectFontFolder);
             var fontName = $"{SafeName(sourceAsset.name)}_LanhuEffectP{EffectFontAtlasPadding}_{StableHash(sourceFontGuid).Substring(0, 8)}";
             var assetPath = $"{EffectFontFolder}/{fontName}.asset";
+            MoveLegacyAsset($"{LegacyEffectFontFolder}/{fontName}.asset", assetPath);
             var effectAsset = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(assetPath);
             if (!effectAsset)
             {
@@ -435,6 +439,21 @@ namespace LanhuRuntimeSync.EditorTools
                 }
 
                 current = next;
+            }
+        }
+
+        private static void MoveLegacyAsset(string legacyPath, string targetPath)
+        {
+            if (AssetDatabase.LoadMainAssetAtPath(targetPath) || !AssetDatabase.LoadMainAssetAtPath(legacyPath))
+            {
+                return;
+            }
+
+            EnsureAssetFolder(Path.GetDirectoryName(targetPath)?.Replace('\\', '/') ?? "Assets");
+            var error = AssetDatabase.MoveAsset(legacyPath, targetPath);
+            if (!string.IsNullOrWhiteSpace(error))
+            {
+                Debug.LogWarning($"[LanhuRuntimeSync] Could not move generated asset '{legacyPath}' to '{targetPath}': {error}");
             }
         }
 

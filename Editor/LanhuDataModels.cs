@@ -239,7 +239,6 @@ namespace LanhuRuntimeSync.EditorTools
         public string Path;
         public bool Visible;
         public float Opacity;
-        public float Rotation;
         public LanhuFrame Frame;
         public string ImageUrl;
         public LanhuTextData Text;
@@ -304,7 +303,6 @@ namespace LanhuRuntimeSync.EditorTools
                 Path = path,
                 Visible = isRoot || LanhuDesignInfo.ReadBool(json["visible"], true),
                 Opacity = ReadOpacity(json["opacity"], 1f),
-                Rotation = ReadRotation(json),
                 Frame = LanhuFrame.Parse((isRoot ? json["realFrame"] : null) as JObject ?? json["frame"] as JObject),
                 ImageUrl = ReadImageUrl(json),
                 Text = LanhuTextData.Parse(json["text"] as JObject),
@@ -330,25 +328,6 @@ namespace LanhuRuntimeSync.EditorTools
         {
             var value = LanhuDesignInfo.ReadFloat(token, fallback);
             return Mathf.Clamp01(value > 1f ? value / 100f : value);
-        }
-
-        private static float ReadRotation(JObject json)
-        {
-            var rotation = LanhuDesignInfo.ReadFloat(json?["rotation"]);
-            if (!Mathf.Approximately(rotation, 0f) || !(json?["transform"] is JArray transform) || transform.Count < 2)
-            {
-                return rotation;
-            }
-
-            var firstRow = transform[0] as JArray;
-            if (firstRow == null || firstRow.Count < 2)
-            {
-                return 0f;
-            }
-
-            var matrixX = LanhuDesignInfo.ReadFloat(firstRow[0], 1f);
-            var matrixY = LanhuDesignInfo.ReadFloat(firstRow[1]);
-            return Mathf.Atan2(matrixY, matrixX) * Mathf.Rad2Deg;
         }
 
         private static string ReadImageUrl(JObject json)

@@ -2,6 +2,12 @@
 
 All notable changes to Lanhu Runtime Sync are documented here.
 
+## 1.0.9 - 2026-07-22
+
+- Stored imported sprites in `Assets/Sprites/<page name>`, generated TMP font assets in `Assets/Fonts/Sdf`, and text-effect materials in `Assets/Fonts/TMP Materials`, matching the project's Figma Converter layout.
+- Automatically moved previously generated Lanhu assets into the new folders while preserving Unity GUID references.
+- Restored the existing Lanhu RectTransform placement behavior after the unrelated 1.0.8 placement change.
+
 ## 1.0.8 - 2026-07-22
 
 - Matched Figma-style RectTransform placement with centered pivots and anchors while preserving each Lanhu node's absolute design bounds inside its parent.
