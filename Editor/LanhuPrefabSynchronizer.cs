@@ -407,7 +407,7 @@ namespace LanhuRuntimeSync.EditorTools
                 }
 
                 rect.SetSiblingIndex(Mathf.Clamp(siblingIndex, 0, Mathf.Max(0, parent.childCount - 1)));
-                ApplyRect(rect, node.Frame, parentFrame);
+                ApplyRect(rect, node.Frame, parentFrame, node.Rotation);
             }
 
             nodeObject.name = SafeObjectName(node.Name, "Lanhu Node");
@@ -727,14 +727,21 @@ namespace LanhuRuntimeSync.EditorTools
             }
         }
 
-        private static void ApplyRect(RectTransform rect, LanhuFrame frame, LanhuFrame parentFrame)
+        private static void ApplyRect(RectTransform rect, LanhuFrame frame, LanhuFrame parentFrame, float rotation)
         {
-            rect.anchorMin = rect.anchorMax = new Vector2(0f, 1f);
-            rect.pivot = new Vector2(0f, 1f);
-            rect.anchoredPosition = new Vector2(frame.Left - parentFrame.Left, -(frame.Top - parentFrame.Top));
-            rect.sizeDelta = new Vector2(Mathf.Max(0.01f, frame.Width), Mathf.Max(0.01f, frame.Height));
+            var size = new Vector2(Mathf.Max(0.01f, frame.Width), Mathf.Max(0.01f, frame.Height));
+            var relativeLeft = frame.Left - parentFrame.Left;
+            var relativeTop = frame.Top - parentFrame.Top;
+
+            // Match Figma import transforms: center pivot/anchor while preserving the source absolute bounds.
+            rect.anchorMin = rect.anchorMax = new Vector2(0.5f, 0.5f);
+            rect.pivot = new Vector2(0.5f, 0.5f);
+            rect.sizeDelta = size;
+            rect.anchoredPosition = new Vector2(
+                relativeLeft + size.x * 0.5f - parentFrame.Width * 0.5f,
+                parentFrame.Height * 0.5f - relativeTop - size.y * 0.5f);
             rect.localScale = Vector3.one;
-            rect.localRotation = Quaternion.identity;
+            rect.localRotation = Quaternion.Euler(0f, 0f, rotation);
         }
 
         private static void ApplyImage(
