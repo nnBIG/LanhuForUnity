@@ -523,11 +523,12 @@ namespace LanhuRuntimeSync.EditorTools
             if (isNew || binding.SyncTransform)
             {
                 rect.SetParent(rootRect, false);
-                rect.anchorMin = Vector2.zero;
-                rect.anchorMax = Vector2.one;
+                rect.anchorMin = rect.anchorMax = new Vector2(0.5f, 0.5f);
                 rect.pivot = new Vector2(0.5f, 0.5f);
                 rect.anchoredPosition = Vector2.zero;
-                rect.sizeDelta = Vector2.zero;
+                rect.sizeDelta = new Vector2(
+                    Mathf.Max(1f, document.Root?.Frame.Width ?? document.Design.Width),
+                    Mathf.Max(1f, document.Root?.Frame.Height ?? document.Design.Height));
                 rect.SetSiblingIndex(0);
             }
 
@@ -765,10 +766,18 @@ namespace LanhuRuntimeSync.EditorTools
 
         private static void ApplyRect(RectTransform rect, LanhuFrame frame, LanhuFrame parentFrame)
         {
-            rect.anchorMin = rect.anchorMax = new Vector2(0f, 1f);
-            rect.pivot = new Vector2(0f, 1f);
-            rect.anchoredPosition = new Vector2(frame.Left - parentFrame.Left, -(frame.Top - parentFrame.Top));
-            rect.sizeDelta = new Vector2(Mathf.Max(0.01f, frame.Width), Mathf.Max(0.01f, frame.Height));
+            var size = new Vector2(Mathf.Max(0.01f, frame.Width), Mathf.Max(0.01f, frame.Height));
+            var parentSize = new Vector2(Mathf.Max(0.01f, parentFrame.Width), Mathf.Max(0.01f, parentFrame.Height));
+            var relativeCenter = new Vector2(
+                frame.Left - parentFrame.Left + size.x * 0.5f,
+                frame.Top - parentFrame.Top + size.y * 0.5f);
+
+            rect.anchorMin = rect.anchorMax = new Vector2(0.5f, 0.5f);
+            rect.pivot = new Vector2(0.5f, 0.5f);
+            rect.anchoredPosition = new Vector2(
+                relativeCenter.x - parentSize.x * 0.5f,
+                parentSize.y * 0.5f - relativeCenter.y);
+            rect.sizeDelta = size;
             rect.localScale = Vector3.one;
             rect.localRotation = Quaternion.identity;
         }

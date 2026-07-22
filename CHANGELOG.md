@@ -2,6 +2,11 @@
 
 All notable changes to Lanhu Runtime Sync are documented here.
 
+## 1.0.10 - 2026-07-22
+
+- Set every imported Lanhu page node, including the whole-page cover fallback, to centered RectTransform anchors and pivots.
+- Recalculated anchored positions from source-frame centers so changing the anchor convention does not move the imported layout.
+
 ## 1.0.9 - 2026-07-22
 
 - Stored imported sprites in `Assets/Sprites/<page name>`, generated TMP font assets in `Assets/Fonts/Sdf`, and text-effect materials in `Assets/Fonts/TMP Materials`, matching the project's Figma Converter layout.
